@@ -51,7 +51,7 @@ Java_com_loopher_loader_MainActivity_stringFromJNI(
         JNIEnv *env,
         jobject /* this */) {
 
-    const char* so = "";
+    const char* so_name = "";
 
     int a;//没有初始化，是一个随机数
     __android_log_print(ANDROID_LOG_DEBUG,"Loopher","a=%d",a);
@@ -59,8 +59,8 @@ Java_com_loopher_loader_MainActivity_stringFromJNI(
     __android_log_print(ANDROID_LOG_DEBUG,"Loopher","b=%c",b);
     std::string hello = "Hello from C++";
 
-    int fd  = open_library_on_path(so);
-    soinfo* si =load_so(fd);//装载so
+    int fd  = open_library_on_path(so_name);
+    soinfo* si =load_so(so_name,fd);//装载so
     if (si == NULL){
         std::string hello = "load so failed";
         return env->NewStringUTF(hello.c_str());

@@ -8,8 +8,9 @@ ElfReader::~ElfReader() {
 
 }
 
-ElfReader::ElfReader(const char *name, int fd) {
-
+ElfReader::ElfReader(const char *soname, int fd) {
+     name = soname; //
+    fd_ =fd;
 }
 
 size_t ElfReader::phdr_count() {

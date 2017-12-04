@@ -7,11 +7,12 @@
 /**
  * 装载so文件
  * */
-soinfo * load_so(int  fd){
+soinfo * load_so(const char* name,int  fd){
     soinfo *si =NULL;
     if(fd  ==-1){
         return  NULL;
     }
+    ElfReader elf_reader(name,fd);//构造函数
 
     return si;
 

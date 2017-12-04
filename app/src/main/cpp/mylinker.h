@@ -8,7 +8,7 @@
 
 #include "../include/linker.h"
 
-soinfo * load_so(int fd);
+soinfo * load_so(const char* name ,int fd);
 void linke_so_img(soinfo * si);
 
 

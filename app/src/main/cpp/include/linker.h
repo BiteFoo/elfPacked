@@ -50,7 +50,6 @@ struct soinfo {
 	unsigned * bucket;
 	unsigned * chain;
 
-
 #if defined(__mips__) || ! defined(__LP64__)
 	//
 	ElfW(Addr) ** plt_got;//给 mpis和Mips64预留的空间，
@@ -58,12 +57,12 @@ struct soinfo {
 
 #if defined(__arm__)
   // ARM EABI section used for stack unwinding.
-  unsigned* ARM_exidx;
- size_t ARM_exidx_count;
+      unsigned* ARM_exidx;
+     size_t ARM_exidx_count;
 #elif defined(__mips__)
-	  unsigned mips_symtabno;
-  unsigned mips_local_gotno;
- unsigned mips_gotsym;
+     unsigned mips_symtabno;
+     unsigned mips_local_gotno;
+     unsigned mips_gotsym;
 #endif
 
  size_t ref_count;
@@ -71,6 +70,7 @@ struct soinfo {
 
  // When you read a virtual address from the ELF file, add this
   // value to get the corresponding address in the process' address space.
-	  ElfW(Addr) load_bias; //so文件加载到内存中的基地址，需要通过计算得到
+    ElfW(Addr) load_bias; //so文件加载到内存中的基地址，需要通过计算得到
+
 };
 
