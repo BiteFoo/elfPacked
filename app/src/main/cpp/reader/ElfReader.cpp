@@ -3,14 +3,23 @@
 //
 
 #include "ElfReader.h"
+#include <fcntl.h>
+#include <stdlib.h>
+#include <dlfcn.h>
+#include <sys/mman.h>
 
 ElfReader::~ElfReader() {
+    if(phdr_mmap_ !=NULL){
+        munmap(phdr_mmap_,phdr_size_); //释放内存
+    }
 
 }
 
-ElfReader::ElfReader(const char *soname, int fd) {
-     name = soname; //
-    fd_ =fd;
+ElfReader::ElfReader(const char *soname, int fd):name(name),fd_(fd),phdr_num_(0),
+phdr_mmap_(NULL),phdr_table_(NULL),phdr_size_(0),load_start_(NULL),load_size_(0),load_bias_(NULL),
+                                                 loaded_phdr_(NULL)
+{
+    //初始化
 }
 
 size_t ElfReader::phdr_count() {
@@ -42,5 +51,10 @@ bool ElfReader::FindPhdr() {
 }
 
 bool ElfReader::CheckPhdr(Elf64_Addr) {
+    return false;
+}
+
+bool ElfReader::Load(void *) {
+
     return false;
 }

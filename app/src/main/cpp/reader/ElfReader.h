@@ -14,7 +14,9 @@ class ElfReader {
 public:
     ElfReader(const char* name,int fd);
     ~ElfReader();
+    bool Load(void*);
     size_t phdr_count();
+
 
 private:
     bool ReadElfHeader();
@@ -28,7 +30,7 @@ private:
     int fd_;
     ElfW(Ehdr) header_;
     size_t phdr_num_;
-    void* phdr_mmpa_;
+    void* phdr_mmap_;
     ElfW(Phdr)* phdr_table_;
     ElfW(Addr) phdr_size_;
     //第一个页预留的地址空间

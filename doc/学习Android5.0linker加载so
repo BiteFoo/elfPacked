@@ -1,0 +1,160 @@
+
+装载so文件：
+/path/bionic/linker/linker.cpp
+1、打开so open(const char* name,int mod);
+  fd = open_library(name);-->open
+
+
+调用文件装载：
+/path/bionic/linker/linker_phdr.cpp
+ElfReader.class
+
+装载so主要在：如下步骤
+1、bool ElfReader::ReadElfHeader {
+
+
+	1、取so文件 read(int fd,void* addr,int size);//在这里读取头部数据
+
+}
+
+2、bool ElfReader::VerifyElfHeader() {
+	1、magic 头部字节是否为"0x7fELF"
+	2、32bit /64bit  32位还是64位
+	3、endia-tagn : little-endian ELFDATA2LSB  高位在前
+	4、DYN : 共享目标文件
+	5、current-version：检测当前版本，一般为1 其他值为错误
+	6、machine/ELF_TARG_MACH:so的版本  主要有arch:x86 x86_64  arm arm-v7a arm64-v8a mips mips64 这么几个
+}
+
+3、bool ElfReader::ReadProgramHeader() {
+
+----------------------1 offset 
+
+----------------------2
+
+-----------------------3
+
+  phdr_size_ = page_max - page_min; //计算program header table size
+
+
+	1、从elf的header_中读取到program header table 的num 
+	2、计算出program header table 的size 大小
+	3、将program header table 使用 read-only private annonymous 的形式映射到内存中
+	4、返回program header table的首地址
+	phdr_mmap_ = mmap_result;
+  phdr_table_ = reinterpret_cast<ElfW(Phdr)*>(reinterpret_cast<char*>(mmap_result) + page_offset);//get phdr table start_addr 
+}
+
+从这里开始，计算出需要的空间，这里计算出bias的大小，也就是
+计算出每个segment加载的基址地址
+
+预留足够大的虚拟地址用于加载program header table 的所有
+可加载的segments ，完成这个步骤是通过调用 mmap()创建一个 private 
+anonymous 和PROT_NONE 的.
+
+4、bool ElfReader::ReserveAddressSpace{
+		1、计算出program header table 的所有可加载的segments的数量
+		这里也要查找 p_type==PT_LOAD的标志
+		  load_size_ = phdr_table_get_load_size(phdr_table_, phdr_num_, &min_vaddr);
+
+		2、根据反馈回来的数量和可加载段的地址，再次将可加载段映射到内存中，得到所有可加载段表的首地址
+		   int mmap_flags = MAP_PRIVATE | MAP_ANONYMOUS;
+   			 start = mmap(addr, load_size_, PROT_NONE, mmap_flags, -1, 0);
+		3、计算出bias_addr的大小因为每个段加载到内存中
+		绝对地址 = 每个加载段的首地址+加载器加载的地址（bias_addr） 
+		load_start_ = start;//每个段加载的首地址
+ 		 load_bias_ = reinterpret_cast<uint8_t*>(start) - addr; //加载器加载的地址
+}
+
+通过第4步，得到bias_addr 之后，就可以装载每个可以加载的段
+5、bool ElfReader::LoadSegments()
+{
+	1、找到p_type==PT_LOAD的段
+	2、计算出每个seg_start,seg_end,seg_page_start	seg_page_end ,seg_file_end,file_startfile_end,file_page_start,file_length
+
+	 // Segment addresses in memory.
+    ElfW(Addr) seg_start = phdr->p_vaddr + load_bias_;//计算出加载段的首地址
+    ElfW(Addr) seg_end   = seg_start + phdr->p_memsz;//计算出段的结束地址
+
+    ElfW(Addr) seg_page_start = PAGE_START(seg_start);//计算映射页的起始地址
+    ElfW(Addr) seg_page_end   = PAGE_END(seg_end);//计算映射页的结束地址
+
+    ElfW(Addr) seg_file_end   = seg_start + phdr->p_filesz;
+
+    // File offsets.
+    ElfW(Addr) file_start = phdr->p_offset;
+    ElfW(Addr) file_end   = file_start + phdr->p_filesz;
+
+    ElfW(Addr) file_page_start = PAGE_START(file_start);
+    ElfW(Addr) file_length = file_end - file_page_start;
+
+    3、通过得到的seg_page_start 和file_page_start file_length 开始映射到内存
+    4、将page_size>seg_page_file_end 的区间使用 0填充
+    5、将seg_page_end>seg_page_file_end 的区间使用 0填充
+
+}
+
+6、返回已经装载的segments的table的首地址 通过 p_type == PT_PHDR 来获取。
+PT_PHDR只有可加载的segments才能存在，并且只有被装在到内存中在才有效，PT_PHDR的只能出现0或者1次
+
+bool ElfReader::FindPhdr() {
+		
+		1、根据p_type == PT_PHDR,找到program header table 的可加载的segments的地址
+		loaded_addr = load_bias_ + phdr->p_vaddr;
+		2、根据loaded_addr，检测加载到内存中可将在的program header table 合法性，避免在后续的
+		linke阶段出现崩溃
+
+}
+
+
+链接so文件：
+通过上一步的装载步骤，可以将So文件中可加载的segments加载内存中。接下来，开始做装载。
+最后会返回一个soninfo* 结构体数据
+
+1、分配新的soinfo* 的内存
+ soinfo* si = soinfo_alloc(SEARCH_NAME(name), &file_stat);
+2、根据装载阶段保存的数据，一次赋值给新分配的soinfo* 
+   si->base = elf_reader.load_start();//可加载的program header table 的起始地址
+    si->size = elf_reader.load_size();//通过计算得到 ，所有可加载的program header table 的值
+    si->load_bias = elf_reader.load_bias(); //计算得到加载器加载的地址
+    si->phnum = elf_reader.phdr_count();  // phdr_num_ = header_.e_phnum;
+    si->phdr = elf_reader.loaded_phdr();PT_PHDR的地址 加载到内存中的program header table 的首地址
+
+    ***********************************linke so***********************************
+3、 if (!soinfo_link_image(si, extinfo)) { //开始连接
+
+	1、首先，找到DYNAMIC表的位置，记录下表的地址和数量
+   phdr_table_get_dynamic_section(phdr, phnum, base, &si->dynamic,
+                                   &dynamic_count, &dynamic_flags);// get dynamic infomation p_type == by PT_DYNAMIC    
+
+2、这里是和arm处理器相关的内容，主要是找到 exdix 的数据
+void) phdr_table_get_arm_exidx(phdr, phnum, base,
+                                    &si->ARM_exidx, &si->ARM_exidx_count); //get arm_exidx by p_type ==  PT_ARM_EXIDX
+
+
+3、根据si->dynamic的结构
+		typedef struct {
+		Elf32_Sword d_tag; //这里决定了 union的数据表示什么 
+		union {
+		Elf32_Word d_val;
+		Elf32_Addr d_ptr;
+
+		}d_un;//对应的数据单元
+		 
+		}Elf32_Dyn; //动态链接结构
+
+	的d_tag来分别读取内容。这里采用了一个for循环来读取，switch是选d_tag表示的内容
+
+}
+
+********************************完成链接后，需要调用constructor函数来调用
+init 和init_array的构造函数，完成最终的工作。
+返回soinfo*的结构体
+
+
+*******************************************
+通过
+
+
+
+
