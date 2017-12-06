@@ -4,7 +4,6 @@
 1、打开so open(const char* name,int mod);
   fd = open_library(name);-->open
 
-
 调用文件装载：
 /path/bionic/linker/linker_phdr.cpp
 ElfReader.class

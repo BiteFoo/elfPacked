@@ -9,14 +9,18 @@
 
 #include <cwchar>
 #include "../include/elf.h"
+#include "../mylinker.h"
 
 class ElfReader {
 public:
     ElfReader(const char* name,int fd);
     ~ElfReader();
     bool Load(void*);
-    size_t phdr_count();
-
+    size_t phdr_count(){return phdr_num_;}
+    ElfW(Addr) load_start(){return reinterpret_cast<ElfW(Addr)> (load_start_);}
+    size_t load_size(){return load_size_;}
+    ElfW(Addr) load_bias(){return load_bias_;}
+    const ElfW(Phdr)* loaded_phdr(){return loaded_phdr_;}
 
 private:
     bool ReadElfHeader();
@@ -26,7 +30,7 @@ private:
     bool LoadSegments();
     bool FindPhdr();
     bool CheckPhdr(ElfW(Addr));
-    const char* name;
+    const char* name_;
     int fd_;
     ElfW(Ehdr) header_;
     size_t phdr_num_;

@@ -35,10 +35,11 @@ struct soinfo;
 //};
 struct soinfo {
 	char name[SOINFO_NAME_LEN];
-	const ElfW(Addr) *phdr;
+	const ElfW(Phdr) *phdr;
 	size_t phnum;
 	ElfW(Addr) entry;
 	ElfW(Addr) base;
+	size_t size;
 	ElfW(Dyn)* dynamic;
 
 	soinfo* next;

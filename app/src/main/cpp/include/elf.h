@@ -980,7 +980,7 @@ typedef struct elf64_shdr {
 #define	ELFMAG1	'E'
 #define	ELFMAG2	'L'
 #define	ELFMAG3	'F'
-#define	ELFMAG	"177ELF"
+#define	ELFMAG	"127ELF"
 #define	SELFMAG	4
 #define	ELFCLASSNONE	0	/* EI_CLASS */
 #define	ELFCLASS32	1
@@ -1035,14 +1035,21 @@ typedef struct elf64_note {
 # define ELF_RELOC      Elf64_Rel
 #endif
 #endif /* ELF_CLASS */
+
 #ifndef ElfW
-# if ELF_CLASS == ELFCLASS32
-#  define ElfW(x)  Elf32_ ## x
-#  define ELFW(x)  ELF32_ ## x
-# else
-#  define ElfW(x)  Elf64_ ## x
-#  define ELFW(x)  ELF64_ ## x
-# endif
+
+#if __LP64__
+#define ElfW(type) Elf64_ ## type
+#else
+#define ElfW(type) Elf32_ ## type
+#endif
+
+//# if ELF_CLASS == ELFCLASS32
+//#  define ElfW(x)  Elf32_ ## x
+//#  define ELFW(x)  ELF32_ ## x
+//# else
+//#  define ElfW(x)  Elf64_ ## x
+//#  define ELFW(x)  ELF64_ ## x
 #endif
 
 

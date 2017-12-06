@@ -1,10 +1,8 @@
 #include <jni.h>
 #include <string>
-#include <android/log.h>
-#include <unistd.h>
-#include <fcntl.h>
-
 #include "mylinker.h"
+#define SO_PATH "/data/local/tmp/mydir/libMini_elf_loader.so"
+
 //使用默认的动态库的路径
 static const char* const kDefaultLdPaths[] = {
         #if defined(__LP64__)
@@ -38,27 +36,12 @@ static int open_library_on_path(const char* name)
      if (fd != -1) {
          return fd;
      }
-
     return fd;
 }
 
-
-extern "C"
-JNIEXPORT jstring
-
-JNICALL
-Java_com_loopher_loader_MainActivity_stringFromJNI(
-        JNIEnv *env,
-        jobject /* this */) {
-
-    const char* so_name = "";
-
-    int a;//没有初始化，是一个随机数
-    __android_log_print(ANDROID_LOG_DEBUG,"Loopher","a=%d",a);
-    char b ='a'+25;
-    __android_log_print(ANDROID_LOG_DEBUG,"Loopher","b=%c",b);
+static jstring  load_and_link_elf(JNIEnv *env){
+    const char* so_name = SO_PATH;
     std::string hello = "Hello from C++";
-
     int fd  = open_library_on_path(so_name);
     soinfo* si =load_so(so_name,fd);//装载so
     if (si == NULL){
@@ -66,8 +49,27 @@ Java_com_loopher_loader_MainActivity_stringFromJNI(
         return env->NewStringUTF(hello.c_str());
     }
     else{
-        linke_so_img(si);//连接so
-    }
+        std::string hello = "完成装载so，准备做链接操作";
+        DL_INFO("完成装载so，准备做链接操作");
+        if(!linke_so_img(si))//连接so
+        {
+            DL_ERR(" \"%s\" linked failed ",so_name);
+        }
 
+        DL_INFO("完成装载链接工作");
+    }
     return env->NewStringUTF(hello.c_str());
+
+}
+
+
+extern "C"
+ JNIEXPORT jstring
+
+JNICALL
+Java_com_loopher_loader_MainActivity_stringFromJNI(
+        JNIEnv *env,
+        jobject /* this */) {
+
+    return load_and_link_elf(env);
 }
