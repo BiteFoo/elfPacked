@@ -46,7 +46,7 @@ static jstring  load_and_link_elf(JNIEnv *env){
     soinfo* si =load_so(so_name,fd);//装载so
     if (si == NULL){
         std::string hello = "load so failed";
-        return env->NewStringUTF(hello.c_str());
+//        return env->NewStringUTF(hello.c_str());
     }
     else{
         std::string hello = "完成装载so，准备做链接操作";
@@ -58,6 +58,11 @@ static jstring  load_and_link_elf(JNIEnv *env){
 
         DL_INFO("完成装载链接工作");
     }
+    close(fd);
+//    if(si != NULL){ //这里释放掉资
+//        free(si);
+//        si =NULL;
+//    }
     return env->NewStringUTF(hello.c_str());
 
 }

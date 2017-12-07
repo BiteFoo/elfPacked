@@ -25,7 +25,7 @@
 #define FLAG_NEW_SOINFO 0x40000000 // new soinfo format
 
 #define SOINFO_NAME_LEN 128
-typedef void(*linker_function_t)();
+typedef void (*linker_function_t)();
 
 struct soinfo;
 //struct SoInfoListAllocator {
@@ -51,6 +51,22 @@ struct soinfo {
 	unsigned * bucket;
 	unsigned * chain;
 
+    linker_function_t* preinit_array;
+    size_t preinit_array_count;
+    linker_function_t* init_array;
+    size_t init_array_count;
+    linker_function_t* fini_array;
+    size_t fini_array_count;
+
+    linker_function_t init_func;
+    linker_function_t fini_func;
+    ElfW(Rel)* plt_rel;
+    size_t plt_rel_count;
+
+    ElfW(Rel)* rel;
+    size_t rel_count;
+
+
 #if defined(__mips__) || ! defined(__LP64__)
 	//
 	ElfW(Addr) ** plt_got;//给 mpis和Mips64预留的空间，
@@ -66,12 +82,21 @@ struct soinfo {
      unsigned mips_gotsym;
 #endif
 
+#if !defined(__LP64__)
+    bool has_text_relocations;
+#endif
+    bool has_DT_SYMBOLIC;
+
  size_t ref_count;
  bool constructors_called;
 
  // When you read a virtual address from the ELF file, add this
   // value to get the corresponding address in the process' address space.
     ElfW(Addr) load_bias; //so文件加载到内存中的基地址，需要通过计算得到
+
+    void call_constructors();
+    void CallConstructor(const char* name,linker_function_t function);
+    void CallArray(const char* array_name,linker_function_t* functions,size_t count ,bool reverse);
 
 };
 

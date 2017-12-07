@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <sys/mman.h>
+#include <dlfcn.h>
 #include "../include/linker.h"
 #define  LOG_TAG "Loopher"
 #define  DL_ERR(fmt,x...) __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,fmt,##x)
@@ -25,8 +26,17 @@
 #define USE_RELA 1
 #endif
 
+
+
  soinfo * load_so(const char* name ,int fd);
  bool  linke_so_img(soinfo * si);
+
+
+//计算符号名称的hash值，方便从hash表中直接查找
+static unsigned  elfhash(const char* _name);
+
+//根据符号的hash值，找到对应的符号函数
+static ElfW(Sym)* soinfo_do_look_up(soinfo*  si,const char* name,soinfo ** lsi);
 
 static void phdr_table_get_dynamic_section(const ElfW(Phdr)* phdr_table,size_t phdr_count,
                                 ElfW(Addr) load_bias,ElfW(Dyn)** dynamic,size_t * dynamic_count,
@@ -36,6 +46,11 @@ static int phdr_table_get_arm_exidx(const ElfW(Phdr)* phdr_table,
                                     ElfW(Addr) load_bias,
                                     ElfW(Addr)** arm_exidx,
                                     unsigned* arm_exidx_count);
+/**
+ * arm处理器的重定向计算函数，
+ * */
+static int soinfo_arm_type_relocate(soinfo* si,ElfW(Rel)* rel, unsigned count);
+static soinfo* soinfo_alloc();//分配so内存
 
 
 #endif //ELFPACKED_MYLINKER_H

@@ -1,4 +1,6 @@
 #include "ElfReader.h"
+
+
 ElfReader::~ElfReader() {
     if(phdr_mmap_ !=NULL){
         munmap(phdr_mmap_,phdr_size_); //释放内存
@@ -130,11 +132,8 @@ size_t phdr_get_load_size(const ElfW(Phdr) * phdr_table,size_t phdr_count,ElfW(A
     for(size_t i =0;i<phdr_count;++i){
         const ElfW(Phdr)* phdr = &phdr_table[i];
         if(phdr->p_type != PT_LOAD){
-//            DL_ERR("not found PT_LOAD ");
             continue; //不是PT_LOAD，跳过当前
         }
-//        DL_INFO("found ======= %d",i);
-//        DL_INFO("phdr->p_vaddr = 0x%x",(unsigned int )phdr->p_vaddr);
         fount_pt_load =true;
         if(phdr->p_vaddr <min_addr){
             min_addr =phdr->p_vaddr;
@@ -180,7 +179,7 @@ bool ElfReader::ReserveAddressSpec() {
 //    bool reversed_hint = true;
     int mmap_flags = MAP_PRIVATE | MAP_ANONYMOUS;//私有匿名映射标志，
     start = mmap(addr,load_size_,PROT_NONE,mmap_flags,-1,0);
-    if (start == NULL){
+    if (start == MAP_FAILED){
         DL_ERR("couldn't reserve %zd bytes of address space for \"%s\"",load_size_,name_);
         return false;
     }
@@ -203,35 +202,25 @@ bool ElfReader::LoadSegments() {
     for(size_t i =0;i<phdr_num_;++i){
         const ElfW(Phdr)* phdr = &phdr_table_[i];
         if(phdr->p_type != PT_LOAD){
-
             continue;
         }
-//        DL_ERR(" fount %d",i);
         // segments addresses in memory  计算段加载到内存中的地址
         ElfW(Addr) seg_start = phdr->p_vaddr+load_bias_;//得到段加载首地址
-//        DL_INFO("seg_start =0x%x",(unsigned int)seg_start );
 
         ElfW(Addr) seg_end = seg_start+phdr->p_memsz;//得到每个段映射地址
-//        DL_INFO("seg_end =0x%x",(unsigned int)seg_end );
 
         ElfW(Addr) seg_page_start = PAGE_START(seg_start);//计算出需要映射的页起始地址
-//        DL_INFO("seg_page_start =0x%x",(unsigned int)seg_page_start );
 
         ElfW(Addr) seg_page_end  = PAGE_END(seg_end);//计算出需要映射的页的结束地址
-//        DL_INFO("seg_page_end =0x%x",(unsigned int)seg_page_end );
         ElfW(Addr) seg_file_end = seg_start+phdr->p_filesz;//计算出段的文件大小地址在映射页中的位置
 
-//        DL_INFO("seg_file_end =0x%x",(unsigned int)seg_file_end );
         //计算出文件偏移
         ElfW(Addr) file_start = phdr->p_offset;//计算出文件占据内存的起始地址
-//        DL_INFO("file_start =0x%x",(unsigned int)file_start );
         ElfW(Addr) file_end = file_start+phdr->p_filesz;///计算文件占据的内存结束地址
-//        DL_INFO("file_end =0x%x",(unsigned int)file_end );
 
         ElfW(Addr) file_page_start = PAGE_START(file_start);
-//        DL_INFO("file_page_start =0x%x",(unsigned int)file_page_start );
         ElfW(Addr) file_length = file_end - file_page_start;
-//        DL_INFO("file_length =0x%x",(unsigned int)file_length );
+
         //具体计算图，可以看img的装载so的内存分布计算图，这图很简单，
         //开始映射每segments段到内存中 ,这里，不再是单个段 而是所有相同段组成的segments段
         if(file_length != 0){
@@ -257,7 +246,6 @@ bool ElfReader::LoadSegments() {
         seg_file_end = PAGE_END(seg_file_end);
         //可能seg_page_end >seg_file_end    ,需要将file_page_end 和seg_page_end之间的空隙用0填充，
         if(seg_page_end > seg_file_end){
-//            DL_INFO("seg_page_end > seg_file_end");
             void* zero_mmap= mmap(reinterpret_cast<void*> (seg_file_end),
                                   seg_page_end-seg_file_end,
                                   PFLAGS_TO_PROT(phdr->p_flags),
@@ -294,7 +282,7 @@ bool ElfReader::FindPhdr() {
             return CheckPhdr(load_bias_+phdr->p_vaddr);
         }
     }
-    DL_INFO("查找PT_PHDR段表，第二种情况*************************》》》》》");
+    DL_INFO("查找PT_PHDR段表，第二种情况*************************");
     //第二种情况
     // Otherwise, check the first loadable segment. If its file offset
     // is 0, it starts with the ELF header, and we can trivially find the

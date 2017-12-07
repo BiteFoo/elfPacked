@@ -140,6 +140,28 @@ typedef int64_t  Elf64_Sxword;
 #define DT_MIPS_GOTSYM	0x70000013
 #define DT_MIPS_HIPAGENO	0x70000014
 #define DT_MIPS_RLD_MAP	0x70000016
+
+
+//2017-12-7 added INIT_ARRAY etc information
+#define DT_INIT_ARRAY 25
+#define DT_FINI_ARRAY 26
+#define DT_INIT_ARRAYSZ 27
+#define DT_FINI_ARRAYSZ 28
+
+/* glibc and BSD disagree for DT_ENCODING; glibc looks wrong. */
+#define DT_PREINIT_ARRAY 32
+#define DT_PREINIT_ARRAYSZ 33
+#define DT_FLAGS 30
+
+
+#define DF_ORIGIN     0x00000001
+#define DF_SYMBOLIC   0x00000002
+#define DF_TEXTREL    0x00000004
+#define DF_BIND_NOW   0x00000008
+#define DF_STATIC_TLS 0x00000010
+
+//end added  by Loopher
+
 /* This info is needed when parsing the symbol table */
 #define STB_LOCAL  0
 #define STB_GLOBAL 1

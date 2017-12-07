@@ -20,3 +20,44 @@ https://github.com/pgyszhh/CPUTypeHelper/blob/master/app/src/main/cpp/CpuFeature
 程序使用的测试文件，libMini_elf_loader.so 先测试，后面还要更改这个程序
 
 
+*****************************************
+2017-12-7
+在测试的过程中发现，是用malloc分配的内存soinfo*,在最后调用 constructor函数的时候，出现了奔溃，
+于是再次查看linker.cpp中的代码，看到如下提示：
+/* >>> IMPORTANT NOTE - READ ME BEFORE MODIFYING <<<
+ *
+ * Do NOT use malloc() and friends or pthread_*() code here.
+ * Don't use printf() either; it's caused mysterious memory
+ * corruption in the past.
+ * The linker runs before we bring up libc and it's easiest
+ * to make sure it does not depend on any complex libc features
+
+
+ 提示不要使用malloc函数和友元或者是pthread*等函数调用，也不能使用printf()函数，
+ 不然会出现未知的错误。
+
+ 那么我在分配内存的时候，使用的是
+ *********************************************
+  int  soinfo_size = sizeof(soinfo);
+     si = (soinfo*) malloc(soinfo_size); //这里使用的是malloc，导致运行function的时候出现了错误
+     if(si== NULL){
+         DL_ERR("内存分配失败 malloc soinfo error !");
+         return NULL;
+     }
+*********************************************
+     更改了方法：
+     /**
+      * soinfo内存分配函数
+      * */
+     static soinfo* soinfo_alloc(){
+         soinfo *si= reinterpret_cast<soinfo*>(mmap(NULL,PAGE_SIZE,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,0,0)); //获取新的内存页
+         if(si == NULL){
+             DL_ERR("内存分配失败");
+             abort();
+         }
+         DL_INFO("内存分配成功 ！");
+         memset(si,0,PAGE_SIZE);//内存初始化，
+         DL_INFO("内存初始化完成");
+         return si;
+     }
+     还是没有加载起来。
