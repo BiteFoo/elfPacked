@@ -61,3 +61,9 @@ https://github.com/pgyszhh/CPUTypeHelper/blob/master/app/src/main/cpp/CpuFeature
          return si;
      }
      还是没有加载起来。
+
+
+     ******************************
+     2017-12-8
+     根据排查的问题，发现DT_INIT函数没有被赋值，但是却被调用了。？？程序在运行的时候并没有执行到DT_INIT段。
+     需要再看看程序

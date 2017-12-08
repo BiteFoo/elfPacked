@@ -425,7 +425,6 @@ static int soinfo_arm_type_relocate(soinfo* si,ElfW(Rel)* rel, unsigned count){
 
 void soinfo:: CallConstructor(const char* name,linker_function_t function){
     DL_INFO("调用 \"%s\"构造函数 ",name);
-
     function();
     DL_INFO("调用 \"%s\"构造函数  完成",name);
 }
@@ -451,7 +450,7 @@ void soinfo::call_constructors(){
     }
     if(init_func)
     {
-        CallConstructor("DT_INIT",init_func);
+        CallConstructor("DT_INIT",init_func);//怎么会出现没有init函数？？？
     }
     if(init_array)
     {
