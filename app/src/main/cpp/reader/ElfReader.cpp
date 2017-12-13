@@ -3,7 +3,9 @@
 
 ElfReader::~ElfReader() {
     if(phdr_mmap_ !=NULL){
+        DL_INFO("*****************************");
         munmap(phdr_mmap_,phdr_size_); //释放内存
+        DL_INFO("释放内存==========");
     }
 
 }
@@ -110,7 +112,7 @@ bool ElfReader::ReadProgramHeader() {
 //    DL_INFO("phdr_size_ =0x%x",phdr_size_);
     //做一个匿名映射到内存中
     void* mmap_addr = mmap(NULL,phdr_size_,PROT_READ,MAP_PRIVATE,fd_,page_min);
-    if(mmap_addr == NULL){
+    if(mmap_addr == MAP_FAILED){
         DL_ERR("  mmap \"%s\"  file  was failed ",name_);
         return false;
     }
@@ -224,15 +226,15 @@ bool ElfReader::LoadSegments() {
         //具体计算图，可以看img的装载so的内存分布计算图，这图很简单，
         //开始映射每segments段到内存中 ,这里，不再是单个段 而是所有相同段组成的segments段
         if(file_length != 0){
+            DL_INFO("seg_page_star=%p",seg_page_start);
             void* seg_addr = mmap(reinterpret_cast<void*>(seg_page_start),
                                   file_length,
                                   PFLAGS_TO_PROT(phdr->p_flags),
                                   MAP_FIXED|MAP_PRIVATE,
                                   fd_,
                                   file_page_start);
-
             if(seg_addr == MAP_FAILED){
-                DL_ERR("couldn't mmap \"%s\" segment %zd ",name_,file_length);
+                DL_ERR("couldn't mmap \"%s\" segment %zd :%s ",name_,file_length,strerror(errno));
                 return false;
             }
         }
@@ -254,7 +256,7 @@ bool ElfReader::LoadSegments() {
                                   0
                                );
             if(zero_mmap == MAP_FAILED){
-                DL_ERR("couldn't zero fill \"%s\",gap:%s",name_,strerror(errno));
+                DL_ERR("couldn't zero fill \"%s\"",name_);
                 return false;
             }
         }

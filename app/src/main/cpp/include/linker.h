@@ -46,10 +46,10 @@ struct soinfo {
 	unsigned flags;//是否被Linked的标志
 	const char* strtab;//字符串表
 	ElfW(Sym)* symtab;//符号表
-	size_t nbucket;//链表
-	size_t nchain;//单链表
-	unsigned * bucket;
-	unsigned * chain;
+	size_t nbucket;//保存函数符号表的索引
+	size_t nchain;//指向函数符号
+	unsigned * bucket;//指向函数符号表索引表地址
+	unsigned * chain;//指向函数符号表地址
 
     linker_function_t* preinit_array;
     size_t preinit_array_count;

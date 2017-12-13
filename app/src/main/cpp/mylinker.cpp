@@ -13,14 +13,13 @@ static unsigned bitmask[4096];
  * soinfo内存分配函数
  * */
 static soinfo* soinfo_alloc(){
-    soinfo *si= reinterpret_cast<soinfo*>(mmap(NULL,PAGE_SIZE,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,0,0));
+    soinfo *si= reinterpret_cast<soinfo*>(mmap(NULL,PAGE_SIZE,PROT_READ|PROT_WRITE|PROT_EXEC,MAP_PRIVATE|MAP_ANONYMOUS,0,0));
     if(si == NULL){
         DL_ERR("内存分配失败");
         abort();
     }
     DL_INFO("内存分配成功 ！");
     memset(si,0,PAGE_SIZE);//清空新申请的内存
-    DL_INFO("内存初始化完成");
     return si;
 
 }
@@ -48,7 +47,6 @@ static soinfo* soinfo_alloc(){
     memset(si,0,soinfo_size);//内存初始化
     strlcpy(si->name,name,sizeof(si->name));//使用strlcpy()可以保证不会出现溢出，strcpy()可能会溢出不够安全
     si->flags=FLAG_NEW_SOINFO;
-
     DL_INFO("内存初始化完成@——@");
     DL_INFO("soinfo_size =0x%x",soinfo_size);
     si->base = elf_reader.load_start();
@@ -79,6 +77,7 @@ static void phdr_table_get_dynamic_section(const ElfW(Phdr)* phdr_table,size_t p
             *dynamic = reinterpret_cast<ElfW(Dyn)*>(phdr->p_vaddr + load_bias);
             if(dynamic_count){//如果dynamic 的地址不为空
                 //这里需要给dynamic赋值
+                //Elf32_Dyn的结构，它占8字节。而PT_DYNAMIC段就是存放着Elf32_Dyn数组，所以dynamic_count的值就是该段的memsz/8。
                 *dynamic_count = ((unsigned)(phdr->p_memsz) /8);//这里是8字节一个
             }
             if(dynamic_flags){
@@ -137,6 +136,7 @@ static int phdr_table_get_arm_exidx(const ElfW(Phdr)* phdr_table,size_t phdr_cou
     DL_INFO("====================linke_so_img==========================");
     DL_INFO("linke so ====>>> size = %d",si->size);
     ElfW(Addr) base = si->load_bias;//加载器的偏移地址，也是可加载段的基址地址
+
     const ElfW(Phdr)* phdr = si->phdr; //可加载段表的首地址 PT_PHDR表或者是loaded segment 的第一个地址
     int phnum = si->phnum;
     bool relocating_linker = (si->flags & FLAG_LINKER) != 0;//  如果不为0 ，那么是重定位链接
@@ -167,14 +167,15 @@ static int phdr_table_get_arm_exidx(const ElfW(Phdr)* phdr_table,size_t phdr_cou
                reinterpret_cast<void*>(d->d_un.d_val));
         switch (d->d_tag){
             case DT_HASH: //哈希表
-                //这里的计算方式？？？ 这个链表
-                si->nbucket = reinterpret_cast<uint32_t *>(base+d->d_un.d_ptr)[0];
-                si->nchain  = reinterpret_cast<uint32_t *>(base+d->d_un.d_ptr)[1];
-                si->bucket = reinterpret_cast<uint32_t *>(base+d->d_un.d_ptr +8);
-                si->chain = reinterpret_cast<uint32_t *>(base+d->d_un.d_ptr+ 8 + si->nbucket *4);
+                //这里的计算方式 这个链表
+                si->nbucket = reinterpret_cast<uint32_t*>(base + d->d_un.d_ptr)[0];
+                si->nchain = reinterpret_cast<uint32_t*>(base + d->d_un.d_ptr)[1];
+                si->bucket = reinterpret_cast<uint32_t*>(base + d->d_un.d_ptr + 8);
+                si->chain = reinterpret_cast<uint32_t*>(base + d->d_un.d_ptr + 8 + si->nbucket * 4);
                 break;
             case DT_STRTAB://字符串表
-                si->strtab = reinterpret_cast<const char *>(base+d->d_un.d_ptr);
+                si->strtab = reinterpret_cast<const char*>(base + d->d_un.d_ptr);
+//                si->strtab = reinterpret_cast<const char *>(base+d->d_un.d_ptr);
                 break;
             case DT_SYMTAB: // 函数符号表
                 si->symtab = reinterpret_cast<ElfW(Sym)*>(base+d->d_un.d_ptr);
@@ -216,7 +217,7 @@ static int phdr_table_get_arm_exidx(const ElfW(Phdr)* phdr_table,size_t phdr_cou
                 si->ref_count = d->d_un.d_val / sizeof(ElfW(Rel));
                 break;
             case DT_INIT:
-                //init函数
+                //init函数 这里是给可执行文件使用到，.so文件不会调用
                 DL_ERR("INIT函数");
                 si->init_func = reinterpret_cast<linker_function_t >(base+d->d_un.d_ptr);
                 break;
@@ -226,11 +227,15 @@ static int phdr_table_get_arm_exidx(const ElfW(Phdr)* phdr_table,size_t phdr_cou
                 si->fini_func = reinterpret_cast<linker_function_t > (base+d->d_un.d_ptr);
                 break;
             case DT_INIT_ARRAY:
-                DL_ERR("DT_INIT_ARRAY 的析构函数");
+                // 这里读取到的 d->d_un.d_ptr 刚好符合使用readelf -d libfoo.so的值
+                //0x00000019 (INIT_ARRAY)                 0x3eb0
+                DL_ERR("DT_INIT_ARRAY 的析构函数 d->d_un.d_ptr=%p",d->d_un.d_ptr); //.so文件使用的构造函数
+                // DT_INIT_ARRAY 的析构函数 d->d_un.d_ptr=0x3eb0
                 si->init_array = reinterpret_cast<linker_function_t *> (base+d->d_un.d_ptr);
+                //
                 break;
             case DT_INIT_ARRAYSZ:
-                DL_ERR("DT_INIT_ARRAYSZ 的析构函数");
+                DL_ERR("DT_INIT_ARRAYSZ 的数量");
                 si->init_array_count=((unsigned)d->d_un.d_val) /sizeof(ElfW(Addr));
                 break;
             case DT_FINI_ARRAY://析构函数
@@ -253,7 +258,7 @@ static int phdr_table_get_arm_exidx(const ElfW(Phdr)* phdr_table,size_t phdr_cou
                 si->has_DT_SYMBOLIC=true;
                 break;
             case DT_NEEDED:
-                ++needed_count;//
+                ++needed_count;// 需要额外的链接库字段
                 DL_ERR("DT_NEEDED...");
                 break;
             case DT_FLAGS:
@@ -275,7 +280,6 @@ static int phdr_table_get_arm_exidx(const ElfW(Phdr)* phdr_table,size_t phdr_cou
         }
     }
     DL_ERR("**************************Extracting dynamic info finished ************************");
-
     if (relocating_linker && needed_count != 0) {
         DL_ERR("linker cannot have DT_NEEDED dependencies on other libraries");
         return false;
@@ -300,6 +304,8 @@ static int phdr_table_get_arm_exidx(const ElfW(Phdr)* phdr_table,size_t phdr_cou
             soinfo* lsi =(soinfo*)dlopen(library_name,RTLD_NOW);
             if(lsi != NULL){
                 DL_INFO("找到\"%s\" 库, addr = %p",library_name,lsi);
+                // 这里准备一个链表，用来保存需要的动态库，
+                //solist.add(sli);
             }
 //             char* lib_dit = "/system/lib";
 //            strcat(lib_dit,library_name);
@@ -324,7 +330,11 @@ static int phdr_table_get_arm_exidx(const ElfW(Phdr)* phdr_table,size_t phdr_cou
     }
     DL_INFO("~~~~链接so完成 !~~~~");
     //在这里调用初始化函数
-    si->flags |= FLAG_EXE;
+//    si->flags |= FLAG_EXE;
+    si->flags |= FLAG_LINKED;
+    if(si->init_func == NULL){
+        DL_ERR("init_func函数没有初始化");
+    }
     si->call_constructors();
     return true;
 }
@@ -394,25 +404,31 @@ static int soinfo_arm_type_relocate(soinfo* si,ElfW(Rel)* rel, unsigned count){
 //        mmmmm++;
         switch (type){
             case R_ARM_JUMP_SLOT:
+                DL_INFO("-----------------R_ARM_JUMP_SLOT----------------");
 //                DL_INFO("R_ARM_JUMP_SLOT ; count= %d",mmmmm);
                 MARK(rel->r_offset);
                 *reinterpret_cast<ElfW(Addr)*>(reloc) = sym_addr; //这里做修正地址
                 break;
             case R_ARM_GLOB_DAT:
+                DL_INFO("-----------------R_ARM_GLOB_DAT----------------");
                 MARK(rel->r_offset);
                 *reinterpret_cast<ElfW(Addr)*>(reloc) = sym_addr;
                 break;
             case R_ARM_ABS32:
+                DL_INFO("-----------------R_ARM_ABS32----------------");
                 MARK(rel->r_offset);
                 *reinterpret_cast<ElfW(Addr)*> (reloc) += sym_addr;
                 break;
             case R_ARM_REL32:
+                DL_INFO("-----------------R_ARM_REL32----------------");
                 MARK(rel->r_offset);
                 *reinterpret_cast<ElfW(Addr)*> (reloc) += sym_addr - rel->r_offset;
                 break;
             case R_ARM_COPY:
+                DL_INFO("-----------------R_ARM_COPY----------------");
                 break;
             case R_ARM_RELATIVE:
+                DL_INFO("-----------------R_ARM_RELATIVE----------------");
                 *reinterpret_cast<ElfW(Addr)*>(reloc) += si->base;
                 break;
             default:
@@ -424,7 +440,11 @@ static int soinfo_arm_type_relocate(soinfo* si,ElfW(Rel)* rel, unsigned count){
 
 
 void soinfo:: CallConstructor(const char* name,linker_function_t function){
-    DL_INFO("调用 \"%s\"构造函数 ",name);
+    if (function == NULL || reinterpret_cast<uintptr_t>(function) == static_cast<uintptr_t>(-1)){
+        DL_ERR("Constructor is NULL");
+        return ;
+    }
+    DL_INFO("调用 \"%s\"构造函数 addr =%p ",name,function);
     function();
     DL_INFO("调用 \"%s\"构造函数  完成",name);
 }
@@ -448,12 +468,16 @@ void soinfo::call_constructors(){
     if(flags & FLAG_EXE ==0){
     DL_ERR("WARNING: flags & FLAG_EXE ==0");
     }
+    //还需要添加额外的动态库的链接
     if(init_func)
     {
+        //可执行文件
         CallConstructor("DT_INIT",init_func);//怎么会出现没有init函数？？？
     }
     if(init_array)
     {
+        //.so文件
+        DL_INFO("call INIT_ARRAY functions ");
         CallArray("DT_INIT_ARRAY",init_array,init_array_count, false);
     }
 

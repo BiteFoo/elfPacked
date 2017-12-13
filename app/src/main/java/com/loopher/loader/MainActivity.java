@@ -1,6 +1,8 @@
 package com.loopher.loader;
 
+import android.annotation.SuppressLint;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.TextView;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
@@ -17,6 +19,7 @@ public class MainActivity extends AppCompatActivity {
         System.loadLibrary("native-lib");
     }
 
+    @SuppressLint("SetTextI18n")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -34,8 +37,14 @@ public class MainActivity extends AppCompatActivity {
         });
 
         // Example of a call to a native method
-        TextView tv = (TextView) findViewById(R.id.sample_text);
-        tv.setText(stringFromJNI());
+        TextView tv =  findViewById(R.id.sample_text);
+        String filename = "libfoo.so" ;//"elf_loader.so"; libfoo.so
+        if(AssetsUtils.copyFile(this,filename)){
+            tv.setText(JNIHelper.getString());
+        }
+        else{
+            tv.setText("not found "+filename);
+        }
     }
 
     @Override
