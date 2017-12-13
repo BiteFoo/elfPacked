@@ -40,7 +40,8 @@ public class AssetsUtils {
                 }
                 fileOutputStream.write(buff,0,len);
             }
-
+            inputStream.close();
+            fileOutputStream.close();
             Log.d("Loopher","copy assets file ok ");
             return true;
         } catch (IOException e) {

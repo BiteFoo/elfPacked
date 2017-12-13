@@ -17,6 +17,7 @@ add_library( # Sets the name of the library.
              SHARED
 
              # Provides a relative path to your source file(s).
+             #src/main/cpp/foo.cpp
              src/main/cpp/native-lib.cpp
               src/main/cpp/mylinker.cpp
               src/main/cpp/reader/ElfReader.cpp
